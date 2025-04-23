@@ -1,84 +1,81 @@
+
 import logging
 import os
 import re
+
 import gspread
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext, CallbackQueryHandler
 from oauth2client.service_account import ServiceAccountCredentials
-from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 # === Логирование ===
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # === Настройка Google Таблицы ===
-SCOPE = [
+SCOPES = [
     "https://spreadsheets.google.com/feeds",
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive.file",
     "https://www.googleapis.com/auth/drive"
 ]
-
-CREDS = ServiceAccountCredentials.from_json_keyfile_name("blat-znak-2f081fa17909.json", SCOPE)
+CREDS = ServiceAccountCredentials.from_json_keyfile_name("blat-znak-2f081fa17909.json", SCOPES)
 CLIENT = gspread.authorize(CREDS)
 SHEET = CLIENT.open("все_номера_для_бота").sheet1
 
-# === Telegram бот ===
-user_states = {}
+# === Telegram Бот ===
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_chat.id
-    user_states[user_id] = None
-    keyboard = [["🔢 Поиск по цифрам"]]
-    await update.message.reply_text("Добро пожаловать! Выберите категорию номеров:",
-                                    reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True))
+async def start(update: Update, context: CallbackContext) -> None:
+    keyboard = [[InlineKeyboardButton("🔢 Поиск по цифрам", callback_data='search_by_digits')]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Добро пожаловать! Выберите категорию номеров:", reply_markup=reply_markup)
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_chat.id
-    text = update.message.text.strip()
+async def button(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    await query.answer()
+    if query.data == 'search_by_digits':
+        await query.message.reply_text("Отправьте последние цифры номера для поиска (например, 777):")
 
-    if text == "🔢 Поиск по цифрам":
-        user_states[user_id] = "search_digits"
-        await update.message.reply_text("Отправьте последние цифры номера для поиска (например, 777):")
+async def search(update: Update, context: CallbackContext) -> None:
+    digits = update.message.text.strip()
+    if not digits.isdigit():
+        await update.message.reply_text("Введите только цифры.")
         return
 
-    if user_states.get(user_id) == "search_digits":
-        digits = re.sub(r"\D", "", text)
-        if not digits:
-            await update.message.reply_text("Введите только цифры.")
-            return
-
+    try:
         rows = SHEET.get_all_records()
-        results = []
-
-        for row in rows:
-            number = str(row.get("Номер", ""))
-            if number[-len(digits):] == digits:
-                price = row.get("Цена", "—")
-                region = row.get("Регион", "—")
-                comment = row.get("Комментарий", "")
-                formatted = f"🚗 *{number}* | {region} | 💰 {price}" + (f"\n💬 {comment}" if comment else "")
-                results.append(formatted)
-
-        if results:
-            reply = "\n\n".join(results)
-        else:
-            reply = "❗ Номеров с такими цифрами не найдено."
-
-        await update.message.reply_text(reply, parse_mode="Markdown")
+    except Exception as e:
+        logger.error(f"Ошибка чтения из таблицы: {e}")
+        await update.message.reply_text("Произошла ошибка при обращении к базе данных.")
         return
 
-    await update.message.reply_text("Выберите категорию или введите цифры номера.")
+    matches = []
+    for row in rows:
+        plate = str(row.get("Номер", "")).lower()
+        if re.search(f"{digits}$", plate):
+            price = row.get("Цена", "")
+            comment = row.get("Комментарий", "")
+            info = f"🚘 <b>{plate.upper()}</b>
+💰 <b>{price}</b>"
+            if comment:
+                info += f"
+📝 {comment}"
+            matches.append(info)
 
-# === Запуск ===
-def main():
-    TOKEN = os.getenv("BOT_TOKEN")
-    app = Application.builder().token(TOKEN).build()
+    if matches:
+        await update.message.reply_text("
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+".join(matches), parse_mode="HTML")
+    else:
+        await update.message.reply_text("❗ Номеров с такими цифрами не найдено.")
 
-    logger.info("Бот запущен...")
-    app.run_polling()
+def main() -> None:
+    application = Application.builder().token(BOT_TOKEN).build()
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CallbackQueryHandler(button))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search))
+    application.run_polling()
 
 if __name__ == "__main__":
     main()

@@ -8,7 +8,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # === Настройки ===
-BOT_TOKEN = "YOUR_BOT_TOKEN"
+BOT_TOKEN = "7799074981:AAFKHc41FKQb_yDI-gemhq6stMagiIfQ680"
 MOTO_FILE = "moto_numbers.txt"
 PAGE_SIZE = 20
 user_pages = {}  # user_id: page_index

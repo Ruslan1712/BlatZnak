@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 # === /start ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton("🔍 Поиск по цифрам (авто)", callback_data="search_auto")],
+        [InlineKeyboardButton("🔍 Поиск по номера по цифрам (авто)", callback_data="search_auto")],
         [InlineKeyboardButton("📋 Все авто номера", callback_data="all_auto")],
         [InlineKeyboardButton("🏍 Мото номера", callback_data="moto")],
         [InlineKeyboardButton("🚛 Прицеп номера", callback_data="trailer")],
@@ -72,9 +72,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "contacts":
         await query.message.reply_text(
             "🏢 Адрес: ул. Твардовского 8 к5 с1\n"
-            "📞 Телефон: +7 (999) 000-00-00\n"
+            "📞 Телефон: +7 (495) 127-74-04\n"
             "💬 Telegram: @blatznak\n"
-            "📱 WhatsApp: +7 (999) 000-00-00"
+            "📱 WhatsApp: +7 903 798-55-89"
         )
 
     elif data.startswith("next_"):

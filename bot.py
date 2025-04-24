@@ -1,6 +1,6 @@
 import os
 import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
+from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
@@ -36,8 +36,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ["📍 Москва все номера"],
         ["📍 Московская обл. все номера"],
         ["🛠 Наши услуги"],
-        ["📞 Наш адрес и контакты"],
-        ["➡️ Далее"]
+        ["📞 Наш адрес и контакты"]
     ], resize_keyboard=True)
 
     await update.message.reply_text(
@@ -47,12 +46,30 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=keyboard
     )
 
-# === Обработка кнопок ===
-async def handle_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# === Пагинация TXT файлов ===
+async def send_paginated_text(update, context, filename, category, next_page=False, page_size=PAGE_SIZE):
+    user_id = update.message.from_user.id
+    key = f"{user_id}_{category}"
+    page = user_pages.get(key, 0)
+    if next_page:
+        page += 1
+    with open(filename, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+    start = page * page_size
+    end = start + page_size
+    page_lines = lines[start:end]
+    if not page_lines:
+        await update.message.reply_text("Номера закончились.")
+        return
+    text = "".join(page_lines)
+    user_pages[key] = page
+    await update.message.reply_text(text)
+
+# === Унифицированный обработчик ===
+async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
 
     if text == "🔍 Поиск номера по цифрам (авто)":
-        context.user_data['search_mode'] = True
         await update.message.reply_text("Отправьте последние цифры номера для поиска (например, 777):")
 
     elif text == "🏍 Мото номера":
@@ -79,28 +96,13 @@ async def handle_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text == "📞 Наш адрес и контакты":
         await update.message.reply_text(
             "🏢 Адрес: ул. Твардовского 8 к5 с1\n"
-            "📞 Телефон: tel:+74951277404\n"
+            "📞 Телефон: +7 (495) 127-74-04\n"
             "💬 Telegram: @blatznak\n"
-            "📱 WhatsApp: https://wa.me/79037985589"
+            "📱 WhatsApp: +7 903 798-55-89"
         )
 
-    elif text == "➡️ Далее":
-        category = context.user_data.get("category")
-        if category:
-            filename = {
-                "moto": MOTO_FILE,
-                "trailer": TRAILER_FILE,
-                "moscow": MOSCOW_FILE,
-                "mosreg": MOSREG_FILE
-            }.get(category)
-            size = MOSCOW_PAGE_SIZE if category in ["moscow", "mosreg"] else PAGE_SIZE
-            await send_paginated_text(update, context, filename, category, next_page=True, page_size=size)
-
-# === Поиск по цифрам ===
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message and context.user_data.get('search_mode'):
-        context.user_data['search_mode'] = False
-        digits = update.message.text.strip()
+    else:
+        digits = text
         results = []
         for row in SHEET.get_all_values()[1:]:
             if digits in row[0]:
@@ -108,32 +110,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply = "\n".join(results) if results else "❗ Номеров с такими цифрами не найдено."
         await update.message.reply_text(reply)
 
-# === Пагинация TXT файлов ===
-async def send_paginated_text(update, context, filename, category, next_page=False, page_size=PAGE_SIZE):
-    user_id = update.message.from_user.id
-    key = f"{user_id}_{category}"
-    page = user_pages.get(key, 0)
-    if next_page:
-        page += 1
-    with open(filename, "r", encoding="utf-8") as f:
-        lines = f.readlines()
-    start = page * page_size
-    end = start + page_size
-    page_lines = lines[start:end]
-    if not page_lines:
-        await update.message.reply_text("Номера закончились.")
-        return
-    text = "".join(page_lines)
-    user_pages[key] = page
-    context.user_data['category'] = category
-    await update.message.reply_text(text)
-
 # === Main ===
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_selection))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, unified_handler))
     app.run_polling()
 
 if __name__ == "__main__":

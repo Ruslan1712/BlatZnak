@@ -36,7 +36,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ["📍 Москва все номера"],
         ["📍 Московская обл. все номера"],
         ["🛠 Наши услуги"],
-        ["📞 Наш адрес и контакты"]
+        ["📞 Наш адрес и контакты"],
+        ["➡️ Далее"]
     ], resize_keyboard=True)
 
     await update.message.reply_text(
@@ -78,7 +79,7 @@ async def handle_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text == "📞 Наш адрес и контакты":
         await update.message.reply_text(
             "🏢 Адрес: ул. Твардовского 8 к5 с1\n"
-            "📞 Телефон: +7 (495) 127-74-04\n"
+            "📞 Телефон: tel:+74951277404\n"
             "💬 Telegram: @blatznak\n"
             "📱 WhatsApp: https://wa.me/79037985589"
         )
@@ -125,7 +126,7 @@ async def send_paginated_text(update, context, filename, category, next_page=Fal
     text = "".join(page_lines)
     user_pages[key] = page
     context.user_data['category'] = category
-    await update.message.reply_text(text + ("\n➡️ Далее" if end < len(lines) else ""))
+    await update.message.reply_text(text)
 
 # === Main ===
 def main():

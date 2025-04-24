@@ -1,6 +1,6 @@
 import os
 import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
@@ -51,6 +51,7 @@ async def handle_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
 
     if text == "🔍 Поиск номера по цифрам (авто)":
+        context.user_data['search_mode'] = True
         await update.message.reply_text("Отправьте последние цифры номера для поиска (например, 777):")
 
     elif text == "🏍 Мото номера":
@@ -79,12 +80,25 @@ async def handle_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🏢 Адрес: ул. Твардовского 8 к5 с1\n"
             "📞 Телефон: +7 (495) 127-74-04\n"
             "💬 Telegram: @blatznak\n"
-            "📱 WhatsApp: +7 903 798-55-89"
+            "📱 WhatsApp: https://wa.me/79037985589"
         )
+
+    elif text == "➡️ Далее":
+        category = context.user_data.get("category")
+        if category:
+            filename = {
+                "moto": MOTO_FILE,
+                "trailer": TRAILER_FILE,
+                "moscow": MOSCOW_FILE,
+                "mosreg": MOSREG_FILE
+            }.get(category)
+            size = MOSCOW_PAGE_SIZE if category in ["moscow", "mosreg"] else PAGE_SIZE
+            await send_paginated_text(update, context, filename, category, next_page=True, page_size=size)
 
 # === Поиск по цифрам ===
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message:
+    if update.message and context.user_data.get('search_mode'):
+        context.user_data['search_mode'] = False
         digits = update.message.text.strip()
         results = []
         for row in SHEET.get_all_values()[1:]:
@@ -110,7 +124,8 @@ async def send_paginated_text(update, context, filename, category, next_page=Fal
         return
     text = "".join(page_lines)
     user_pages[key] = page
-    await update.message.reply_text(text)
+    context.user_data['category'] = category
+    await update.message.reply_text(text + ("\n➡️ Далее" if end < len(lines) else ""))
 
 # === Main ===
 def main():

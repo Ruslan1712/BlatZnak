@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 # === /start ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        ["🔍 Поиск по номера по цифрам (авто)"],
+        ["🔍 Поиск  номера по цифрам (авто)"],
         ["📋 Все авто номера"],
         ["🏍 Мото номера"],
         ["🚛 Прицеп номера"],

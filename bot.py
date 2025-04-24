@@ -1,7 +1,8 @@
+
 import os
 import logging
-from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
@@ -11,8 +12,7 @@ MOSREG_FILE = "Московская область.txt"
 MOTO_FILE = "moto_numbers.txt"
 TRAILER_FILE = "trailer_numbers.txt"
 MOSCOW_FILE = "270315af-8756-4519-b3cf-88fac83dbc0b.txt"
-PAGE_SIZE = 20
-MOSCOW_PAGE_SIZE = 30
+DEFAULT_PAGE_SIZE = 30
 user_pages = {}
 
 # === Google Sheets ===
@@ -46,44 +46,82 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=keyboard
     )
 
-# === Пагинация TXT файлов ===
-async def send_paginated_text(update, context, filename, category, next_page=False, page_size=PAGE_SIZE):
-    user_id = update.message.from_user.id
-    key = f"{user_id}_{category}"
-    page = user_pages.get(key, 0)
-    if next_page:
-        page += 1
+# === Пагинация TXT файлов с кнопкой "Далее" ===
+async def send_paginated_text(update, context, filename, category, page=0):
+    user_id = update.effective_user.id
+    page_size = context.user_data.get("page_size", DEFAULT_PAGE_SIZE)
     with open(filename, "r", encoding="utf-8") as f:
         lines = f.readlines()
     start = page * page_size
     end = start + page_size
     page_lines = lines[start:end]
     if not page_lines:
-        await update.message.reply_text("Номера закончились.")
+        await update.effective_message.reply_text("Номера закончились.")
         return
     text = "".join(page_lines)
-    user_pages[key] = page
-    await update.message.reply_text(text)
+    keyboard = []
+    if end < len(lines):
+        keyboard = [[InlineKeyboardButton("Далее", callback_data=f"{category}|{page + 1}")]]
+    reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
+    await update.effective_message.reply_text(text, reply_markup=reply_markup)
 
-# === Унифицированный обработчик ===
+# === Обработка callback от кнопки "Далее" ===
+async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    category, page_str = query.data.split("|")
+    page = int(page_str)
+    file_map = {
+        "moscow": MOSCOW_FILE,
+        "mosreg": MOSREG_FILE,
+        "moto": MOTO_FILE,
+        "trailer": TRAILER_FILE
+    }
+    filename = file_map.get(category)
+    if filename:
+        await send_paginated_text(update, context, filename, category, page=page)
+
+# === Универсальный обработчик ===
 async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
+    user_data = context.user_data
+
+    # Если ожидаем размер страницы
+    if user_data.get("expecting_page_size"):
+        try:
+            page_size = int(text)
+            if page_size < 1 or page_size > 100:
+                raise ValueError
+            user_data["page_size"] = page_size
+            user_data["expecting_page_size"] = False
+            category = user_data["selected_category"]
+            file_map = {
+                "moscow": MOSCOW_FILE,
+                "mosreg": MOSREG_FILE,
+                "moto": MOTO_FILE,
+                "trailer": TRAILER_FILE
+            }
+            await send_paginated_text(update, context, file_map[category], category)
+        except ValueError:
+            await update.message.reply_text("Пожалуйста, введите число от 1 до 100.")
+        return
 
     if text == "🔍 Поиск номера по цифрам (авто)":
         await update.message.reply_text("Отправьте последние цифры номера для поиска (например, 777):")
-
-    elif text == "🏍 Мото номера":
-        await send_paginated_text(update, context, MOTO_FILE, "moto")
-
-    elif text == "🚛 Прицеп номера":
-        await send_paginated_text(update, context, TRAILER_FILE, "trailer")
-
-    elif text == "📍 Москва все номера":
-        await send_paginated_text(update, context, MOSCOW_FILE, "moscow", page_size=MOSCOW_PAGE_SIZE)
-
-    elif text == "📍 Московская обл. все номера":
-        await send_paginated_text(update, context, MOSREG_FILE, "mosreg", page_size=MOSCOW_PAGE_SIZE)
-
+    elif text in {
+        "🏍 Мото номера", "🚛 Прицеп номера",
+        "📍 Москва все номера", "📍 Московская обл. все номера"
+    }:
+        category_map = {
+            "🏍 Мото номера": "moto",
+            "🚛 Прицеп номера": "trailer",
+            "📍 Москва все номера": "moscow",
+            "📍 Московская обл. все номера": "mosreg"
+        }
+        category = category_map[text]
+        user_data["expecting_page_size"] = True
+        user_data["selected_category"] = category
+        await update.message.reply_text("Сколько номеров показать на странице? (например, 30)")
     elif text == "🛠 Наши услуги":
         await update.message.reply_text(
             "📌 Наши услуги:\n"
@@ -92,7 +130,6 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "- Продажа красивых номеров\n"
             "- Страхование"
         )
-
     elif text == "📞 Наш адрес и контакты":
         await update.message.reply_text(
             "🏢 Адрес: ул. Твардовского 8 к5 с1\n"
@@ -100,7 +137,6 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "💬 Telegram: @blatznak\n"
             "📱 WhatsApp: +7 903 798-55-89"
         )
-
     else:
         digits = text
         results = []
@@ -115,6 +151,7 @@ def main():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, unified_handler))
+    app.add_handler(CallbackQueryHandler(handle_callback))
     app.run_polling()
 
 if __name__ == "__main__":

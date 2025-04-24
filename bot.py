@@ -1,12 +1,13 @@
 import os
 import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
 # === Настройки ===
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+MOSREG_FILE = "Московская область.txt"
 MOTO_FILE = "moto_numbers.txt"
 TRAILER_FILE = "trailer_numbers.txt"
 MOSCOW_FILE = "270315af-8756-4519-b3cf-88fac83dbc0b.txt"
@@ -29,7 +30,20 @@ logger = logging.getLogger(__name__)
 # === /start ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton("🔍 Поиск номера по цифрам (авто)", callback_data="search_auto")],
+        ["🔍 Поиск номера по цифрам (авто)"],
+        ["🏍 Мото номера"],
+        ["🚛 Прицеп номера"],
+        ["📍 Москва все номера"],
+        ["📍 Московская обл. все номера"],
+        ["🛠 Наши услуги"],
+        ["📞 Наш адрес и контакты"]
+    ],
+        ["🏍 Мото номера"],
+        ["🚛 Прицеп номера"],
+        ["📍 Москва все номера"],
+        ["🛠 Наши услуги"],
+        ["📞 Наш адрес и контакты"]
+    ],
         [InlineKeyboardButton("🏍 Мото номера", callback_data="moto")],
         [InlineKeyboardButton("🚛 Прицеп номера", callback_data="trailer")],
         [InlineKeyboardButton("📍 Москва все номера", callback_data="moscow")],
@@ -38,38 +52,56 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     await update.message.reply_text(
         "Добро пожаловать в компанию BlatZnak!\nМы занимаемся продажей гос номеров и постановкой на учет.\nВыберите действие:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     )
 
 # === Callback обработчик ===
 async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    data = query.data
+    pass  # Обработка больше не нужна при ReplyKeyboardMarkup
 
-    if data == "search_auto":
-        await query.message.reply_text("Отправьте последние цифры номера для поиска (например, 777):")
+async def handle_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.strip()
+
+    if text == "🔍 Поиск номера по цифрам (авто)":
+        await update.message.reply_text("Отправьте последние цифры номера для поиска (например, 777):")
         return
 
-    elif data == "moto":
-        await send_paginated_text(query, context, MOTO_FILE, "moto")
+    elif text == "🏍 Мото номера":
+        await send_paginated_text(update, context, MOTO_FILE, "moto")
 
-    elif data == "trailer":
-        await send_paginated_text(query, context, TRAILER_FILE, "trailer")
+    elif text == "🚛 Прицеп номера":
+        await send_paginated_text(update, context, TRAILER_FILE, "trailer")
 
-    elif data == "moscow":
-        await send_paginated_text(query, context, MOSCOW_FILE, "moscow", page_size=MOSCOW_PAGE_SIZE)
+    elif text == "📍 Москва все номера":
+        await send_paginated_text(update, context, MOSCOW_FILE, "moscow", page_size=MOSCOW_PAGE_SIZE)
 
-    elif data == "services":
-        await query.message.reply_text(
-            "📌 Наши услуги:\n"
-            "- Дубликат номеров\n"
-            "- Постановка автомобиля на учет\n"
-            "- Продажа красивых номеров\n"
+    elif text == "📍 Московская обл. все номера":
+        await send_paginated_text(update, context, MOSREG_FILE, "mosreg", page_size=MOSCOW_PAGE_SIZE)
+        await send_paginated_text(update, context, MOSCOW_FILE, "moscow", page_size=MOSCOW_PAGE_SIZE)
+
+    elif text == "🛠 Наши услуги":
+        await update.message.reply_text(
+            "📌 Наши услуги:
+"
+            "- Дубликат номеров
+"
+            "- Постановка автомобиля на учет
+"
+            "- Продажа красивых номеров
+"
             "- Страхование"
         )
 
-    elif data == "contacts":
+    elif text == "📞 Наш адрес и контакты":
+        await update.message.reply_text(
+            "🏢 Адрес: ул. Твардовского 8 к5 с1
+"
+            "📞 Телефон: +7 (495) 127-74-04 [Позвонить](tel:+74951277404)
+"
+            "💬 Telegram: @blatznak
+"
+            "📱 WhatsApp: +7 903 798-55-89"
+        )
         await query.message.reply_text(
             "🏢 Адрес: ул. Твардовского 8 к5 с1\n"
             "📞 Телефон: +7 (495) 127-74-04 [Позвонить](tel:+74951277404)\n"
@@ -82,7 +114,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         filename = {
             "moto": MOTO_FILE,
             "trailer": TRAILER_FILE,
-            "moscow": MOSCOW_FILE
+            "moscow": MOSCOW_FILE,
+            "mosreg": MOSREG_FILE
         }.get(category)
         size = MOSCOW_PAGE_SIZE if category == "moscow" else PAGE_SIZE
         await send_paginated_text(query, context, filename, category, next_page=True, page_size=size)
@@ -122,7 +155,7 @@ async def send_paginated_text(query, context, filename, category, next_page=Fals
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(handle_callback))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_selection))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.run_polling()
 

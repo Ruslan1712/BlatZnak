@@ -48,7 +48,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     user_id = update.message.from_user.id
 
-    if text == "🔍 Поиск по номера по цифрам (авто)":
+    if text == "🔍 Поиск номера по цифрам (авто)":
         await update.message.reply_text("Отправьте последние цифры номера для поиска (например, 777):")
         context.user_data['search_mode'] = True
         return

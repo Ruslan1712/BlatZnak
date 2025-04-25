@@ -159,8 +159,25 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     elif text == "📞 Наш адрес и контакты":
         await update.message.reply_text(
-            "🏢 Адрес: ул. Твардовского 8 к5 с1\n"
-            "📞 Телефон: +7 (495) 127-74-04\n"
+            "🏢 Адрес: улица Твардовского, 8к5с1, Москва
+"
+            "📍 [Открыть в Яндекс Навигаторе](https://yandex.ru/navi/?ol=geo&text=%D1%83%D0%BB%D0%B8%D1%86%D0%B0%20%D0%A2%D0%B2%D0%B0%D1%80%D0%B4%D0%BE%D0%B2%D1%81%D0%BA%D0%BE%D0%B3%D0%BE,%208%D0%BA5%D1%811&sll=37.388268,55.792574&sspn=0.004626,0.008211&si=yv4jmrkja6ftc7n9v0hcffjzb4)
+"
+            "📞 Телефон: +7 (495) 127-74-04
+"
+            "💬 Telegram: @blatznak
+"
+            "📱 [Написать в WhatsApp](https://wa.me/79037985589)",
+            parse_mode="Markdown"
+        )
+"
+            "📞 Телефон: +7 (495) 127-74-04
+"
+            "💬 Telegram: @blatznak
+"
+            "📱 WhatsApp: +7 903 798-55-89",
+            parse_mode="Markdown"
+        ) 127-74-04\n"
             "💬 Telegram: @blatznak\n"
             "📱 WhatsApp: +7 903 798-55-89"
         )

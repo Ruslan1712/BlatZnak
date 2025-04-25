@@ -41,7 +41,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ["📍 Московская обл. все номера"],
         ["🛠 Наши услуги"],
         ["📞 Наш адрес и контакты"],
-        ["💰 Продать номер"]
+        ["📤 Отправить свой номер на продажу"]
     ], resize_keyboard=True)
 
     await update.message.reply_text(
@@ -162,7 +162,7 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "📱 [WhatsApp: +7 903 798-55-89](https://wa.me/79037985589)",
             parse_mode="Markdown")
 
-    elif text == "💰 Продать номер":
+    elif text == "📤 Отправить свой номер на продажу":
         user_data["expecting_sell_number"] = True
         await update.message.reply_text("Введите номер автомобиля, который вы хотите продать:")
 

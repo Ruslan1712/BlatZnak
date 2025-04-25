@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 # === /start ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = ReplyKeyboardMarkup([
-        ["🔍 Поиск номера по цифрам (авто)"],
+        ["🔍 Поиск номера по цифрам (авто)", "🔠 Поиск номера по буквам"],
         ["🏍 Мото номера"],
         ["🚛 Прицеп номера"],
         ["📍 Москва все номера"],
@@ -86,7 +86,6 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     user_data = context.user_data
 
-    # Если ожидаем размер страницы
     if user_data.get("expecting_page_size"):
         try:
             page_size = int(text)
@@ -106,7 +105,23 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Пожалуйста, введите число от 1 до 100.")
         return
 
-    if text == "🔍 Поиск номера по цифрам (авто)":
+    elif text == "🔠 Поиск номера по буквам":
+        user_data["expecting_letter_search"] = True
+        await update.message.reply_text("Введите буквы для поиска (например, МК):")
+        return
+
+    elif user_data.get("expecting_letter_search"):
+        query = text.upper()
+        user_data["expecting_letter_search"] = False
+        results = []
+        for row in SHEET.get_all_values()[1:]:
+            if query in row[0].upper():
+                results.append(f"{row[0]} {row[1]} - {row[2]}₽ {row[3]}")
+        reply = "\n".join(results) if results else "❗ Номеров с такими буквами не найдено."
+        await update.message.reply_text(reply)
+        return
+
+    elif text == "🔍 Поиск номера по цифрам (авто)":
         await update.message.reply_text("Отправьте последние цифры номера для поиска (например, 777):")
     elif text in {
         "🏍 Мото номера", "🚛 Прицеп номера",

@@ -4,6 +4,7 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 import gspread
+import re
 from oauth2client.service_account import ServiceAccountCredentials
 
 # === Настройки ===
@@ -14,6 +15,12 @@ TRAILER_FILE = "trailer_numbers.txt"
 MOSCOW_FILE = "270315af-8756-4519-b3cf-88fac83dbc0b.txt"
 DEFAULT_PAGE_SIZE = 30
 user_pages = {}
+
+
+def ru_to_lat(text):
+    repl = str.maketrans("АВЕКМНОРСТУХ", "ABEKMHOPCTYX")
+    return text.translate(repl)
+
 
 # === Google Sheets ===
 SCOPES = [
@@ -111,12 +118,11 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     elif user_data.get("expecting_letter_search"):
-        query = text.upper()
+        query = ru_to_lat(text.upper())
         user_data["expecting_letter_search"] = False
         results = []
         for row in SHEET.get_all_values()[1:]:
-            only_letters = "".join(re.findall(r"[А-ЯA-Z]+", row[0].upper()))
-            if query in only_letters:
+            if query in row[0].upper():
                 results.append(f"{row[0]} {row[1]} - {row[2]}₽ {row[3]}")
         reply = "\n".join(results) if results else "❗ Номеров с такими буквами не найдено."
         await update.message.reply_text(reply)

@@ -175,6 +175,14 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 "
             "💬 Telegram: @blatznak
 "
+            "📱 [Написать в WhatsApp](https://wa.me/79037985589)",
+            parse_mode="Markdown"
+        )
+"
+            "📞 Телефон: +7 (495) 127-74-04
+"
+            "💬 Telegram: @blatznak
+"
             "📱 WhatsApp: +7 903 798-55-89",
             parse_mode="Markdown"
         ) 127-74-04\n"

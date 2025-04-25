@@ -157,7 +157,7 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🏢 Адрес: улица Твардовского, 8к5с1, Москва\n"
             "📍 [Открыть в Яндекс.Навигаторе](https://yandex.ru/navi/?ol=geo&text=%D1%83%D0%BB%D0%B8%D1%86%D0%B0%20%D0%A2%D0%B2%D0%B0%D1%80%D0%B4%D0%BE%D0%B2%D1%81%D0%BA%D0%BE%D0%B3%D0%BE,%208%D0%BA5%D1%811&sll=37.388268,55.792574)\n"
             "📞 [Позвонить: +7 (495) 127-74-04](tel:+74951277404)\n"
-            "💬 Telegram: @blatznak\n"
+            "💬 Telegram: @blatznak77\n"
             "📱 [Написать в WhatsApp](https://wa.me/79037985589)",
             parse_mode="Markdown"
         )

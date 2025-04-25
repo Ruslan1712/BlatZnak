@@ -167,7 +167,7 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 "
             "💬 Telegram: @blatznak
 "
-            "📱 [Написать в WhatsApp](https://wa.me/79037985589)",
+            "📱 WhatsApp: [Написать в WhatsApp](https://wa.me/79037985589)",
             parse_mode="Markdown"
         )
 "

@@ -65,6 +65,7 @@ async def send_paginated_text(update, context, filename, category, page=0):
         await update.effective_message.reply_text("Номера закончились.")
         return
     text = "".join(page_lines)
+    keyboard = [[InlineKeyboardButton("Далее", callback_data=f"{category}|{page + 1}")]] if end < len(lines) else []
     keyboard = []
     if end < len(lines):
         keyboard = [[InlineKeyboardButton("Далее", callback_data=f"{category}|{page + 1}")]]
@@ -108,7 +109,11 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             }
             await send_paginated_text(update, context, file_map[category], category)
         except ValueError:
-            await update.message.reply_text("Пожалуйста, введите число от 1 до 100.")
+            user_data["expecting_page_size"] = False
+            await update.message.reply_text(
+                "❗ Сейчас ожидалось число от 1 до 100 для показа номеров. "
+                "Попробуйте ещё раз или нажмите /start для возврата в меню."
+            )
         return
 
     elif text == "🔠 Поиск номера по буквам":

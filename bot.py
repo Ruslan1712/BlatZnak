@@ -152,11 +152,11 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     elif text == "📞 Наш адрес и контакты":
         await update.message.reply_text(
-            "🏢 Адрес: ул. Твардовского 8 к5 с1\n"
+            "🏢 Адрес: [ул. Твардовского 8 к5 с1](https://yandex.ru/maps/?text=ул.%20Твардовского%208%20к5%20с1)\n"
             "📞 Телефон: +7 (495) 127-74-04\n"
             "💬 Telegram: @blatznak\n"
-            "📱 WhatsApp: +7 903 798-55-89"
-        )
+            "📱 [WhatsApp: +7 903 798-55-89](https://wa.me/79037985589)"
+        , parse_mode="Markdown")
     else:
         digits = text
         results = []

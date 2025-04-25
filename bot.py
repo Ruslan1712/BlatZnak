@@ -162,6 +162,7 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📱 [WhatsApp: +7 903 798-55-89](https://wa.me/79037985589)",
         parse_mode="Markdown"
     )
+    )
 
     elif text == "📤 Отправить свой номер на продажу":
         user_data["expecting_sell_number"] = True

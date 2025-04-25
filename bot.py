@@ -15,11 +15,9 @@ MOSCOW_FILE = "270315af-8756-4519-b3cf-88fac83dbc0b.txt"
 DEFAULT_PAGE_SIZE = 30
 user_pages = {}
 
-
 def ru_to_lat(text):
     repl = str.maketrans("АВЕКМНОРСТУХ", "ABEKMHOPCTYX")
     return text.translate(repl)
-
 
 # === Google Sheets ===
 SCOPES = [
@@ -66,9 +64,6 @@ async def send_paginated_text(update, context, filename, category, page=0):
         return
     text = "".join(page_lines)
     keyboard = [[InlineKeyboardButton("Далее", callback_data=f"{category}|{page + 1}")]] if end < len(lines) else []
-    keyboard = []
-    if end < len(lines):
-        keyboard = [[InlineKeyboardButton("Далее", callback_data=f"{category}|{page + 1}")]]
     reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
     await update.effective_message.reply_text(text, reply_markup=reply_markup)
 
@@ -159,51 +154,12 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     elif text == "📞 Наш адрес и контакты":
         await update.message.reply_text(
-            "🏢 Адрес: улица Твардовского, 8к5с1, Москва
-"
-            "📍 [Открыть в Яндекс.Навигаторе](https://yandex.ru/navi/?ol=geo&text=%D1%83%D0%BB%D0%B8%D1%86%D0%B0%20%D0%A2%D0%B2%D0%B0%D1%80%D0%B4%D0%BE%D0%B2%D1%81%D0%BA%D0%BE%D0%B3%D0%BE,%208%D0%BA5%D1%811&sll=37.388268,55.792574)
-"
-            "📞 [Позвонить: +7 (495) 127-74-04](tel:+74951277404)
-"
-            "💬 Telegram: @blatznak
-"
-            "📱 [Написать в WhatsApp](https://wa.me/79037985589)",
-            parse_mode="Markdown"
-        )
-"
-            "📞 [Позвонить: +7 (495) 127-74-04](tel:+74951277404)
-"
-            "💬 Telegram: @blatznak
-"
-            "📱 [Написать в WhatsApp](https://wa.me/79037985589)",
-            parse_mode="Markdown"
-        )
-"
-            "📞 [Позвонить: +7 (495) 127-74-04](tel:+74951277404)
-"
-            "💬 Telegram: @blatznak
-"
-            "📱 [Написать в WhatsApp](https://wa.me/79037985589)",
-            parse_mode="Markdown"
-        )
-"
-            "📞 Телефон: +7 (495) 127-74-04
-"
-            "💬 Telegram: @blatznak
-"
-            "📱 [Написать в WhatsApp](https://wa.me/79037985589)",
-            parse_mode="Markdown"
-        )
-"
-            "📞 Телефон: +7 (495) 127-74-04
-"
-            "💬 Telegram: @blatznak
-"
-            "📱 WhatsApp: +7 903 798-55-89",
-            parse_mode="Markdown"
-        ) 127-74-04\n"
+            "🏢 Адрес: улица Твардовского, 8к5с1, Москва\n"
+            "📍 [Открыть в Яндекс.Навигаторе](https://yandex.ru/navi/?ol=geo&text=%D1%83%D0%BB%D0%B8%D1%86%D0%B0%20%D0%A2%D0%B2%D0%B0%D1%80%D0%B4%D0%BE%D0%B2%D1%81%D0%BA%D0%BE%D0%B3%D0%BE,%208%D0%BA5%D1%811&sll=37.388268,55.792574)\n"
+            "📞 [Позвонить: +7 (495) 127-74-04](tel:+74951277404)\n"
             "💬 Telegram: @blatznak\n"
-            "📱 WhatsApp: +7 903 798-55-89"
+            "📱 [Написать в WhatsApp](https://wa.me/79037985589)",
+            parse_mode="Markdown"
         )
     else:
         digits = text

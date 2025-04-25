@@ -40,7 +40,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ["📍 Москва все номера"],
         ["📍 Московская обл. все номера"],
         ["🛠 Наши услуги"],
-        ["📞 Наш адрес и контакты"]
+        ["📞 Наш адрес и контакты"],
+        ["💰 Продать номер"]
     ], resize_keyboard=True)
 
     await update.message.reply_text(
@@ -152,19 +153,26 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     elif text == "📞 Наш адрес и контакты":
         await update.message.reply_text(
-            "🏢 Адрес: [ул. Твардовского 8 к5 с1](https://yandex.ru/navi/?ol=geo&text=%D1%83%D0%BB%D0%B8%D1%86%D0%B0%20%D0%A2%D0%B2%D0%B0%D1%80%D0%B4%D0%BE%D0%B2%D1%81%D0%BA%D0%BE%D0%B3%D0%BE,%208%D0%BA5%D1%811&sll=37.388268,55.792574&sspn=0.004626,0.008211&si=yv4jmrkja6ftc7n9v0hcffjzb4)\n"
-            "📞 Телефон: +7 (495) 127-74-04\n"
-            "💬 Telegram: @blatznak\n"
-            "📱 [WhatsApp: +7 903 798-55-89](https://wa.me/79037985589)"
-        , parse_mode="Markdown")
-    else:
-        digits = text
-        results = []
-        for row in SHEET.get_all_values()[1:]:
-            if digits in row[0]:
-                results.append(f"{row[0]} {row[1]} - {row[2]}₽ {row[3]}")
-        reply = "\n".join(results) if results else "❗ Номеров с такими цифрами не найдено."
-        await update.message.reply_text(reply)
+            "🏢 Адрес: [ул. Твардовского 8 к5 с1](https://yandex.ru/navi/?ol=geo&text=%D1%83%D0%BB%D0%B8%D1%86%D0%B0%20%D0%A2%D0%B2%D0%B0%D1%80%D0%B4%D0%BE%D0%B2%D1%81%D0%BA%D0%BE%D0%B3%D0%BE,%208%D0%BA5%D1%811&sll=37.388268,55.792574&sspn=0.004626,0.008211&si=yv4jmrkja6ftc7n9v0hcffjzb4)
+"
+            "📞 Телефон: +7 (495) 127-74-04
+"
+            "💬 Telegram: @blatznak
+"
+            "📱 [WhatsApp: +7 903 798-55-89](https://wa.me/79037985589)",
+            parse_mode="Markdown")
+
+    elif text == "💰 Продать номер":
+        user_data["expecting_sell_number"] = True
+        await update.message.reply_text("Введите номер автомобиля, который вы хотите продать:")
+
+    elif user_data.get("expecting_sell_number"):
+        user_data["expecting_sell_number"] = False
+        license_plate = text
+        # Отправка сообщения в Telegram-канал (замени на нужный ID/username)
+        await context.bot.send_message(chat_id="@blatznak", text=f"🔔 Новое предложение: пользователь хочет продать номер: {license_plate}")
+        # Можно добавить отправку через сторонний сервис на WhatsApp, если он подключен (через API)
+        await update.message.reply_text("Спасибо! Мы свяжемся с вами в ближайшее время.")
 
 # === Main ===
 def main():

@@ -115,7 +115,8 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_data["expecting_letter_search"] = False
         results = []
         for row in SHEET.get_all_values()[1:]:
-            if query in row[0].upper():
+            only_letters = "".join(re.findall(r"[А-ЯA-Z]+", row[0].upper()))
+            if query in only_letters:
                 results.append(f"{row[0]} {row[1]} - {row[2]}₽ {row[3]}")
         reply = "\n".join(results) if results else "❗ Номеров с такими буквами не найдено."
         await update.message.reply_text(reply)

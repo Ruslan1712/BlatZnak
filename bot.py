@@ -34,13 +34,13 @@ logger = logging.getLogger(__name__)
 # === /start ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = ReplyKeyboardMarkup([
-        ["🔍 Поиск номера по цифрам (авто)", "🔠 Поиск номера по буквам"],
-        ["🏍 Мото номера"],
-        ["🚛 Прицеп номера"],
-        ["📍 Москва все номера"],
-        ["📍 Московская обл. все номера"],
-        ["🛠 Наши услуги"],
-        ["📞 Наш адрес и контакты"]
+        ["\U0001F50D Поиск номера по цифрам (авто)", "\U0001F520 Поиск номера по буквам"],
+        ["\U0001F6CD Мото номера"],
+        ["\U0001F69B Прицеп номера"],
+        ["\U0001F4CD Москва все номера"],
+        ["\U0001F4CD Московская обл. все номера"],
+        ["\U0001F6E0 Наши услуги"],
+        ["\U0001F4DE Наш адрес и контакты"]
     ], resize_keyboard=True)
 
     await update.message.reply_text(
@@ -54,6 +54,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def send_paginated_text(update, context, filename, category, page=0):
     user_id = update.effective_user.id
     page_size = context.user_data.get("page_size", DEFAULT_PAGE_SIZE)
+    if not os.path.exists(filename):
+        await update.effective_message.reply_text("Файл с номерами не найден.")
+        return
     with open(filename, "r", encoding="utf-8") as f:
         lines = f.readlines()
     start = page * page_size
@@ -106,12 +109,12 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except ValueError:
             user_data["expecting_page_size"] = False
             await update.message.reply_text(
-                "❗ Сейчас ожидалось число от 1 до 100 для показа номеров. "
+                "\u2757 Сейчас ожидалось число от 1 до 100 для показа номеров. "
                 "Попробуйте ещё раз или нажмите /start для возврата в меню."
             )
         return
 
-    elif text == "🔠 Поиск номера по буквам":
+    elif text == "\U0001F520 Поиск номера по буквам":
         user_data["expecting_letter_search"] = True
         await update.message.reply_text("Введите буквы для поиска (например, МК):")
         return
@@ -119,55 +122,57 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_data.get("expecting_letter_search"):
         query = ru_to_lat(text.upper())
         user_data["expecting_letter_search"] = False
+        sheet_data = SHEET.get_all_values()[1:]
         results = []
-        for row in SHEET.get_all_values()[1:]:
+        for row in sheet_data:
             only_letters = ru_to_lat("".join(re.findall(r"[А-ЯA-Z]+", row[0].upper())))
             if query in only_letters:
                 results.append(f"{row[0]} {row[1]} - {row[2]}₽ {row[3]}")
-        reply = "\n".join(results) if results else "❗ Номеров с такими буквами не найдено."
+        reply = "\n".join(results) if results else "\u2757 Номеров с такими буквами не найдено."
         await update.message.reply_text(reply)
         return
 
-    elif text == "🔍 Поиск номера по цифрам (авто)":
+    elif text == "\U0001F50D Поиск номера по цифрам (авто)":
         await update.message.reply_text("Отправьте последние цифры номера для поиска (например, 777):")
     elif text in {
-        "🏍 Мото номера", "🚛 Прицеп номера",
-        "📍 Москва все номера", "📍 Московская обл. все номера"
+        "\U0001F6CD Мото номера", "\U0001F69B Прицеп номера",
+        "\U0001F4CD Москва все номера", "\U0001F4CD Московская обл. все номера"
     }:
         category_map = {
-            "🏍 Мото номера": "moto",
-            "🚛 Прицеп номера": "trailer",
-            "📍 Москва все номера": "moscow",
-            "📍 Московская обл. все номера": "mosreg"
+            "\U0001F6CD Мото номера": "moto",
+            "\U0001F69B Прицеп номера": "trailer",
+            "\U0001F4CD Москва все номера": "moscow",
+            "\U0001F4CD Московская обл. все номера": "mosreg"
         }
         category = category_map[text]
         user_data["expecting_page_size"] = True
         user_data["selected_category"] = category
         await update.message.reply_text("Сколько номеров показать на странице? (например, 30)")
-    elif text == "🛠 Наши услуги":
+    elif text == "\U0001F6E0 Наши услуги":
         await update.message.reply_text(
-            "📌 Наши услуги:\n"
+            "\U0001F4CC Наши услуги:\n"
             "- Дубликат номеров\n"
             "- Постановка автомобиля на учет\n"
             "- Продажа красивых номеров\n"
             "- Страхование"
         )
-    elif text == "📞 Наш адрес и контакты":
+    elif text == "\U0001F4DE Наш адрес и контакты":
         await update.message.reply_text(
-            "🏢 Адрес: улица Твардовского, 8к5с1, Москва\n"
-            "📍 [Открыть в Яндекс.Навигаторе](https://yandex.ru/navi/?ol=geo&text=%D1%83%D0%BB%D0%B8%D1%86%D0%B0%20%D0%A2%D0%B2%D0%B0%D1%80%D0%B4%D0%BE%D0%B2%D1%81%D0%BA%D0%BE%D0%B3%D0%BE,%208%D0%BA5%D1%811&sll=37.388268,55.792574)\n"
-            "📞 [Позвонить: +7 (495) 127-74-04](tel:+74951277404)\n"
-            "💬 Telegram: @blatznak77\n"
-            "📱 [Написать в WhatsApp](https://wa.me/79037985589)",
+            "\U0001F3E2 Адрес: улица Твардовского, 8к5с1, Москва\n"
+            "\U0001F4CD [Открыть в Яндекс.Навигаторе](https://yandex.ru/navi/?ol=geo&text=%D1%83%D0%BB%D0%B8%D1%86%D0%B0%20%D0%A2%D0%B2%D0%B0%D1%80%D0%B4%D0%BE%D0%B2%D1%81%D0%BA%D0%BE%D0%B3%D0%BE,%208%D0%BA5%D1%811&sll=37.388268,55.792574)\n"
+            "\u260E [Позвонить: +7 (966) 000-26-26](tel:+79660002626)\n"
+            "\U0001F4AC Telegram: @blatznak77\n"
+            "\U0001F4F1 [Написать в WhatsApp](https://wa.me/79660002626)",
             parse_mode="Markdown"
         )
     else:
         digits = text
+        sheet_data = SHEET.get_all_values()[1:]
         results = []
-        for row in SHEET.get_all_values()[1:]:
+        for row in sheet_data:
             if digits in row[0]:
                 results.append(f"{row[0]} {row[1]} - {row[2]}₽ {row[3]}")
-        reply = "\n".join(results) if results else "❗ Номеров с такими цифрами не найдено."
+        reply = "\n".join(results) if results else "\u2757 Номеров с такими цифрами не найдено."
         await update.message.reply_text(reply)
 
 # === Main ===

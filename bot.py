@@ -33,13 +33,11 @@ logger = logging.getLogger(__name__)
 # === /start ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = ReplyKeyboardMarkup([
+        ["🔁 Старт"],
         ["\U0001F50D Поиск номера по цифрам (авто)", "\U0001F520 Поиск номера по буквам"],
-        ["\U0001F6CD Мото номера"],
-        ["\U0001F69B Прицеп номера"],
-        ["\U0001F4CD Москва все номера"],
-        ["\U0001F4CD Московская обл. все номера"],
-        ["\U0001F6E0 Наши услуги"],
-        ["\U0001F4DE Наш адрес и контакты"]
+        ["\U0001F6CD Мото номера", "\U0001F69B Прицеп номера"],
+        ["\U0001F4CD Москва все номера", "\U0001F4CD Московская обл. все номера"],
+        ["\U0001F6E0 Наши услуги", "\U0001F4DE Наш адрес и контакты"]
     ], resize_keyboard=True)
 
     await update.message.reply_text(
@@ -56,7 +54,6 @@ async def send_full_file(update: Update, context: ContextTypes.DEFAULT_TYPE, fil
         return
     with open(filename, "r", encoding="utf-8") as f:
         content = f.read()
-        # Telegram ограничивает сообщение 4096 символами — делим по частям
         for i in range(0, len(content), 4000):
             await update.message.reply_text(content[i:i+4000])
 
@@ -64,6 +61,10 @@ async def send_full_file(update: Update, context: ContextTypes.DEFAULT_TYPE, fil
 async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     user_data = context.user_data
+
+    if text == "🔁 Старт":
+        await start(update, context)
+        return
 
     if user_data.get("expecting_page_size"):
         try:
@@ -88,7 +89,7 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user_data["expecting_page_size"] = False
             await update.message.reply_text(
                 "\u2757 Сейчас ожидалось число от 1 до 100 для показа номеров. "
-                "Попробуйте ещё раз или нажмите /start для возврата в меню."
+                "Попробуйте ещё раз или нажмите 🔁 Старт для возврата в меню."
             )
         return
 
@@ -112,8 +113,10 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif text == "\U0001F50D Поиск номера по цифрам (авто)":
         await update.message.reply_text("Отправьте последние цифры номера для поиска (например, 777):")
+
     elif text == "\U0001F6CD Мото номера":
         await send_full_file(update, context, MOTO_FILE)
+
     elif text in {
         "\U0001F69B Прицеп номера",
         "\U0001F4CD Москва все номера",
@@ -128,6 +131,7 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_data["expecting_page_size"] = True
         user_data["selected_category"] = category
         await update.message.reply_text("Сколько номеров показать на странице? (например, 30)")
+
     elif text == "\U0001F6E0 Наши услуги":
         await update.message.reply_text(
             "\U0001F4CC Наши услуги:\n"
@@ -136,6 +140,7 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "- Продажа красивых номеров\n"
             "- Страхование"
         )
+
     elif text == "\U0001F4DE Наш адрес и контакты":
         await update.message.reply_text(
             "\U0001F3E2 Адрес: улица Твардовского, 8к5с1, Москва\n"

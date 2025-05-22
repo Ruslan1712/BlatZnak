@@ -1,7 +1,7 @@
 import os
 import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
+from telegram import Update, ReplyKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 import gspread
 import re
 from oauth2client.service_account import ServiceAccountCredentials
@@ -13,7 +13,6 @@ MOTO_FILE = "moto_numbers.txt"
 TRAILER_FILE = "trailer_numbers.txt"
 MOSCOW_FILE = "270315af-8756-4519-b3cf-88fac83dbc0b.txt"
 DEFAULT_PAGE_SIZE = 30
-user_pages = {}
 
 def ru_to_lat(text):
     repl = str.maketrans("АВЕКМНОРСТУХ", "ABEKMHOPCTYX")
@@ -50,41 +49,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=keyboard
     )
 
-# === Пагинация TXT файлов с кнопкой "Далее" ===
-async def send_paginated_text(update, context, filename, category, page=0):
-    user_id = update.effective_user.id
-    page_size = context.user_data.get("page_size", DEFAULT_PAGE_SIZE)
+# === Показать файл целиком ===
+async def send_full_file(update: Update, context: ContextTypes.DEFAULT_TYPE, filename: str):
     if not os.path.exists(filename):
-        await update.effective_message.reply_text("Файл с номерами не найден.")
+        await update.message.reply_text("Файл с номерами не найден.")
         return
     with open(filename, "r", encoding="utf-8") as f:
-        lines = f.readlines()
-    start = page * page_size
-    end = start + page_size
-    page_lines = lines[start:end]
-    if not page_lines:
-        await update.effective_message.reply_text("Номера закончились.")
-        return
-    text = "".join(page_lines)
-    keyboard = [[InlineKeyboardButton("Далее", callback_data=f"{category}|{page + 1}")]] if end < len(lines) else []
-    reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
-    await update.effective_message.reply_text(text, reply_markup=reply_markup)
-
-# === Обработка callback от кнопки "Далее" ===
-async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    category, page_str = query.data.split("|")
-    page = int(page_str)
-    file_map = {
-        "moscow": MOSCOW_FILE,
-        "mosreg": MOSREG_FILE,
-        "moto": MOTO_FILE,
-        "trailer": TRAILER_FILE
-    }
-    filename = file_map.get(category)
-    if filename:
-        await send_paginated_text(update, context, filename, category, page=page)
+        content = f.read()
+        # Telegram ограничивает сообщение 4096 символами — делим по частям
+        for i in range(0, len(content), 4000):
+            await update.message.reply_text(content[i:i+4000])
 
 # === Универсальный обработчик ===
 async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -102,10 +76,14 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             file_map = {
                 "moscow": MOSCOW_FILE,
                 "mosreg": MOSREG_FILE,
-                "moto": MOTO_FILE,
                 "trailer": TRAILER_FILE
             }
-            await send_paginated_text(update, context, file_map[category], category)
+            filename = file_map[category]
+            with open(filename, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+            for i in range(0, len(lines), page_size):
+                chunk = "".join(lines[i:i + page_size])
+                await update.message.reply_text(chunk)
         except ValueError:
             user_data["expecting_page_size"] = False
             await update.message.reply_text(
@@ -134,12 +112,14 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif text == "\U0001F50D Поиск номера по цифрам (авто)":
         await update.message.reply_text("Отправьте последние цифры номера для поиска (например, 777):")
+    elif text == "\U0001F6CD Мото номера":
+        await send_full_file(update, context, MOTO_FILE)
     elif text in {
-        "\U0001F6CD Мото номера", "\U0001F69B Прицеп номера",
-        "\U0001F4CD Москва все номера", "\U0001F4CD Московская обл. все номера"
+        "\U0001F69B Прицеп номера",
+        "\U0001F4CD Москва все номера",
+        "\U0001F4CD Московская обл. все номера"
     }:
         category_map = {
-            "\U0001F6CD Мото номера": "moto",
             "\U0001F69B Прицеп номера": "trailer",
             "\U0001F4CD Москва все номера": "moscow",
             "\U0001F4CD Московская обл. все номера": "mosreg"
@@ -180,7 +160,6 @@ def main():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, unified_handler))
-    app.add_handler(CallbackQueryHandler(handle_callback))
     app.run_polling()
 
 if __name__ == "__main__":

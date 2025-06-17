@@ -2,12 +2,12 @@ import os
 import logging
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
-import gspread
+import openpyxl
 import re
-from oauth2client.service_account import ServiceAccountCredentials
 
 # === Настройки ===
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+EXCEL_FILE = "номера_заглавные.xlsx"  # Путь к Excel файлу с номерами
 MOSREG_FILE = "Московская область.txt"
 MOTO_FILE = "moto_numbers.txt"
 TRAILER_FILE = "trailer_numbers.txt"
@@ -15,16 +15,129 @@ MOSCOW_FILE = "270315af-8756-4519-b3cf-88fac83dbc0b.txt"
 DEFAULT_PAGE_SIZE = 30
 
 def ru_to_lat(text):
+    """Преобразует русские буквы в латинские аналоги"""
     repl = str.maketrans("АВЕКМНОРСТУХ", "ABEKMHOPCTYX")
     return text.translate(repl)
 
-# === Google Sheets ===
-SCOPES = [
-    "https://spreadsheets.google.com/feeds",
-    "https://www.googleapis.com/auth/drive",
-]
-CREDS = ServiceAccountCredentials.from_json_keyfile_name("blat-znak-2f081fa17909.json", SCOPES)
-SHEET = gspread.authorize(CREDS).open("все_номера_для_бота").sheet1
+def extract_letters_from_number(number):
+    """Извлекает только буквы из номера и преобразует в заглавные"""
+    # Извлекаем все буквы (русские и латинские)
+    letters = re.findall(r"[А-ЯA-Z]+", number.upper())
+    # Объединяем все буквы в одну строку
+    letters_only = "".join(letters)
+    # Преобразуем русские буквы в латинские для унификации поиска
+    return ru_to_lat(letters_only)
+
+def search_numbers_by_letters(search_query, max_results=50):
+    """
+    Улучшенный поиск номеров по буквам в Excel файле
+    
+    Args:
+        search_query: строка для поиска (буквы)
+        max_results: максимальное количество результатов
+    
+    Returns:
+        список найденных номеров с информацией
+    """
+    try:
+        # Открываем Excel файл
+        wb = openpyxl.load_workbook(EXCEL_FILE)
+        ws = wb.active
+        
+        # Преобразуем поисковый запрос
+        query = ru_to_lat(search_query.upper().strip())
+        
+        if not query:
+            return []
+        
+        results = []
+        
+        # Проходим по всем строкам (начиная со 2-й, пропуская заголовки)
+        for row in range(2, ws.max_row + 1):
+            number = ws.cell(row=row, column=1).value or ""
+            region = ws.cell(row=row, column=2).value or ""
+            price = ws.cell(row=row, column=3).value or ""
+            comment = ws.cell(row=row, column=4).value or ""
+            
+            # Извлекаем буквы из номера
+            number_letters = extract_letters_from_number(number)
+            
+            # Проверяем, содержит ли номер искомые буквы
+            if query in number_letters:
+                # Формируем строку результата
+                result_line = f"{number}"
+                if region:
+                    result_line += f" (регион {region})"
+                if price:
+                    result_line += f" - {price}₽"
+                if comment:
+                    result_line += f" {comment}"
+                
+                results.append(result_line)
+                
+                # Ограничиваем количество результатов
+                if len(results) >= max_results:
+                    break
+        
+        return results
+        
+    except Exception as e:
+        logger.error(f"Ошибка при поиске по буквам: {e}")
+        return []
+
+def search_numbers_by_digits(search_query, max_results=50):
+    """
+    Поиск номеров по цифрам в Excel файле
+    
+    Args:
+        search_query: строка для поиска (цифры)
+        max_results: максимальное количество результатов
+    
+    Returns:
+        список найденных номеров с информацией
+    """
+    try:
+        # Открываем Excel файл
+        wb = openpyxl.load_workbook(EXCEL_FILE)
+        ws = wb.active
+        
+        query = search_query.strip()
+        
+        if not query:
+            return []
+        
+        results = []
+        
+        # Проходим по всем строкам (начиная со 2-й, пропуская заголовки)
+        for row in range(2, ws.max_row + 1):
+            number = ws.cell(row=row, column=1).value or ""
+            region = ws.cell(row=row, column=2).value or ""
+            price = ws.cell(row=row, column=3).value or ""
+            comment = ws.cell(row=row, column=4).value or ""
+            
+            # Проверяем, содержит ли номер или регион искомые цифры
+            full_number = f"{number}{region}"
+            if query in full_number:
+                # Формируем строку результата
+                result_line = f"{number}"
+                if region:
+                    result_line += f" (регион {region})"
+                if price:
+                    result_line += f" - {price}₽"
+                if comment:
+                    result_line += f" {comment}"
+                
+                results.append(result_line)
+                
+                # Ограничиваем количество результатов
+                if len(results) >= max_results:
+                    break
+        
+        return results
+        
+    except Exception as e:
+        logger.error(f"Ошибка при поиске по цифрам: {e}")
+        return []
 
 # === Логирование ===
 logging.basicConfig(level=logging.INFO)
@@ -95,24 +208,47 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif text == "\U0001F520 Поиск номера по буквам":
         user_data["expecting_letter_search"] = True
-        await update.message.reply_text("Введите буквы для поиска (например, МК):")
+        await update.message.reply_text("Введите буквы для поиска (например, СС, АА, МК):")
         return
 
     elif user_data.get("expecting_letter_search"):
-        query = ru_to_lat(text.upper())
         user_data["expecting_letter_search"] = False
-        sheet_data = SHEET.get_all_values()[1:]
-        results = []
-        for row in sheet_data:
-            only_letters = ru_to_lat("".join(re.findall(r"[А-ЯA-Z]+", row[0].upper())))
-            if query in only_letters:
-                results.append(f"{row[0]} {row[1]} - {row[2]}₽ {row[3]}")
-        reply = "\n".join(results) if results else "\u2757 Номеров с такими буквами не найдено."
-        await update.message.reply_text(reply)
+        
+        # Используем улучшенный алгоритм поиска по буквам
+        results = search_numbers_by_letters(text, max_results=50)
+        
+        if results:
+            reply = f"🔍 Найдено номеров с буквами '{text.upper()}': {len(results)}\n\n"
+            reply += "\n".join(results)
+        else:
+            reply = f"❌ Номеров с буквами '{text.upper()}' не найдено."
+        
+        # Разбиваем длинные сообщения
+        for i in range(0, len(reply), 4000):
+            await update.message.reply_text(reply[i:i+4000])
         return
 
     elif text == "\U0001F50D Поиск номера по цифрам (авто)":
-        await update.message.reply_text("Отправьте последние цифры номера для поиска (например, 777):")
+        user_data["expecting_digit_search"] = True
+        await update.message.reply_text("Отправьте цифры номера для поиска (например, 777, 123):")
+        return
+
+    elif user_data.get("expecting_digit_search"):
+        user_data["expecting_digit_search"] = False
+        
+        # Используем поиск по цифрам
+        results = search_numbers_by_digits(text, max_results=50)
+        
+        if results:
+            reply = f"🔍 Найдено номеров с цифрами '{text}': {len(results)}\n\n"
+            reply += "\n".join(results)
+        else:
+            reply = f"❌ Номеров с цифрами '{text}' не найдено."
+        
+        # Разбиваем длинные сообщения
+        for i in range(0, len(reply), 4000):
+            await update.message.reply_text(reply[i:i+4000])
+        return
 
     elif text == "\U0001F6CD Мото номера":
         await send_full_file(update, context, MOTO_FILE)
@@ -151,14 +287,18 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="Markdown"
         )
     else:
-        digits = text
-        sheet_data = SHEET.get_all_values()[1:]
-        results = []
-        for row in sheet_data:
-            if digits in row[0]:
-                results.append(f"{row[0]} {row[1]} - {row[2]}₽ {row[3]}")
-        reply = "\n".join(results) if results else "\u2757 Номеров с такими цифрами не найдено."
-        await update.message.reply_text(reply)
+        # Если пользователь ввел что-то другое, пытаемся найти по цифрам
+        results = search_numbers_by_digits(text, max_results=50)
+        
+        if results:
+            reply = f"🔍 Найдено номеров с '{text}': {len(results)}\n\n"
+            reply += "\n".join(results)
+        else:
+            reply = f"❌ Номеров с '{text}' не найдено."
+        
+        # Разбиваем длинные сообщения
+        for i in range(0, len(reply), 4000):
+            await update.message.reply_text(reply[i:i+4000])
 
 # === Main ===
 def main():
@@ -169,3 +309,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

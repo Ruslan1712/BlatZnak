@@ -31,15 +31,13 @@ def extract_letters_from_number(number):
 def search_numbers_by_letters(search_query, max_results=50):
     """
     Улучшенный поиск номеров по буквам в Excel файле
-    
-    Args:
-        search_query: строка для поиска (буквы)
-        max_results: максимальное количество результатов
-    
-    Returns:
-        список найденных номеров с информацией
     """
     try:
+        # Проверяем существование файла
+        if not os.path.exists(EXCEL_FILE):
+            logger.error(f"Excel файл не найден: {EXCEL_FILE}")
+            return []
+        
         # Открываем Excel файл
         wb = openpyxl.load_workbook(EXCEL_FILE)
         ws = wb.active
@@ -54,10 +52,10 @@ def search_numbers_by_letters(search_query, max_results=50):
         
         # Проходим по всем строкам (начиная со 2-й, пропуская заголовки)
         for row in range(2, ws.max_row + 1):
-            number = ws.cell(row=row, column=1).value or ""
-            region = ws.cell(row=row, column=2).value or ""
-            price = ws.cell(row=row, column=3).value or ""
-            comment = ws.cell(row=row, column=4).value or ""
+            number = str(ws.cell(row=row, column=1).value or "")
+            region = str(ws.cell(row=row, column=2).value or "")
+            price = str(ws.cell(row=row, column=3).value or "")
+            comment = str(ws.cell(row=row, column=4).value or "")
             
             # Извлекаем буквы из номера
             number_letters = extract_letters_from_number(number)
@@ -66,11 +64,11 @@ def search_numbers_by_letters(search_query, max_results=50):
             if query in number_letters:
                 # Формируем строку результата
                 result_line = f"{number}"
-                if region:
+                if region and region != "None":
                     result_line += f" (регион {region})"
-                if price:
+                if price and price != "None":
                     result_line += f" - {price}₽"
-                if comment:
+                if comment and comment != "None":
                     result_line += f" {comment}"
                 
                 results.append(result_line)
@@ -79,6 +77,7 @@ def search_numbers_by_letters(search_query, max_results=50):
                 if len(results) >= max_results:
                     break
         
+        wb.close()
         return results
         
     except Exception as e:
@@ -88,15 +87,13 @@ def search_numbers_by_letters(search_query, max_results=50):
 def search_numbers_by_digits(search_query, max_results=50):
     """
     Поиск номеров по цифрам в Excel файле
-    
-    Args:
-        search_query: строка для поиска (цифры)
-        max_results: максимальное количество результатов
-    
-    Returns:
-        список найденных номеров с информацией
     """
     try:
+        # Проверяем существование файла
+        if not os.path.exists(EXCEL_FILE):
+            logger.error(f"Excel файл не найден: {EXCEL_FILE}")
+            return []
+        
         # Открываем Excel файл
         wb = openpyxl.load_workbook(EXCEL_FILE)
         ws = wb.active
@@ -110,21 +107,21 @@ def search_numbers_by_digits(search_query, max_results=50):
         
         # Проходим по всем строкам (начиная со 2-й, пропуская заголовки)
         for row in range(2, ws.max_row + 1):
-            number = ws.cell(row=row, column=1).value or ""
-            region = ws.cell(row=row, column=2).value or ""
-            price = ws.cell(row=row, column=3).value or ""
-            comment = ws.cell(row=row, column=4).value or ""
+            number = str(ws.cell(row=row, column=1).value or "")
+            region = str(ws.cell(row=row, column=2).value or "")
+            price = str(ws.cell(row=row, column=3).value or "")
+            comment = str(ws.cell(row=row, column=4).value or "")
             
             # Проверяем, содержит ли номер или регион искомые цифры
             full_number = f"{number}{region}"
             if query in full_number:
                 # Формируем строку результата
                 result_line = f"{number}"
-                if region:
+                if region and region != "None":
                     result_line += f" (регион {region})"
-                if price:
+                if price and price != "None":
                     result_line += f" - {price}₽"
-                if comment:
+                if comment and comment != "None":
                     result_line += f" {comment}"
                 
                 results.append(result_line)
@@ -133,6 +130,7 @@ def search_numbers_by_digits(search_query, max_results=50):
                 if len(results) >= max_results:
                     break
         
+        wb.close()
         return results
         
     except Exception as e:
@@ -165,10 +163,14 @@ async def send_full_file(update: Update, context: ContextTypes.DEFAULT_TYPE, fil
     if not os.path.exists(filename):
         await update.message.reply_text("Файл с номерами не найден.")
         return
-    with open(filename, "r", encoding="utf-8") as f:
-        content = f.read()
-        for i in range(0, len(content), 4000):
-            await update.message.reply_text(content[i:i+4000])
+    try:
+        with open(filename, "r", encoding="utf-8") as f:
+            content = f.read()
+            for i in range(0, len(content), 4000):
+                await update.message.reply_text(content[i:i+4000])
+    except Exception as e:
+        logger.error(f"Ошибка при чтении файла {filename}: {e}")
+        await update.message.reply_text("Ошибка при чтении файла.")
 
 # === Универсальный обработчик ===
 async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -193,11 +195,14 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "trailer": TRAILER_FILE
             }
             filename = file_map[category]
-            with open(filename, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-            for i in range(0, len(lines), page_size):
-                chunk = "".join(lines[i:i + page_size])
-                await update.message.reply_text(chunk)
+            if os.path.exists(filename):
+                with open(filename, "r", encoding="utf-8") as f:
+                    lines = f.readlines()
+                for i in range(0, len(lines), page_size):
+                    chunk = "".join(lines[i:i + page_size])
+                    await update.message.reply_text(chunk)
+            else:
+                await update.message.reply_text("Файл не найден.")
         except ValueError:
             user_data["expecting_page_size"] = False
             await update.message.reply_text(
@@ -302,9 +307,16 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # === Main ===
 def main():
+    if not BOT_TOKEN:
+        logger.error("BOT_TOKEN не установлен в переменных окружения!")
+        return
+    
+    logger.info("Запуск бота...")
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, unified_handler))
+    
+    logger.info("Бот запущен и готов к работе!")
     app.run_polling()
 
 if __name__ == "__main__":

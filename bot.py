@@ -8,6 +8,9 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 # === Настройки ===
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Railway: https://your-app.up.railway.app/webhook
+PORT = int(os.getenv("PORT", 8000))
+
 MOSREG_FILE = "Московская область.txt"
 MOTO_FILE = "moto_numbers.txt"
 TRAILER_FILE = "trailer_numbers.txt"
@@ -88,8 +91,7 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except ValueError:
             user_data["expecting_page_size"] = False
             await update.message.reply_text(
-                "\u2757 Сейчас ожидалось число от 1 до 100 для показа номеров. "
-                "Попробуйте ещё раз или нажмите 🔁 Старт для возврата в меню."
+                "\u2757 Ожидалось число от 1 до 100. Попробуйте ещё раз или нажмите 🔁 Старт."
             )
         return
 
@@ -147,7 +149,7 @@ async def unified_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "\U0001F4CD [Открыть в Яндекс.Навигаторе](https://yandex.ru/navi/?ol=geo&text=%D1%83%D0%BB%D0%B8%D1%86%D0%B0%20%D0%A2%D0%B2%D0%B0%D1%80%D0%B4%D0%BE%D0%B2%D1%81%D0%BA%D0%BE%D0%B3%D0%BE,%208%D0%BA5%D1%811&sll=37.388268,55.792574)\n"
             "\u260E [Позвонить: +7 (966) 000-26-26](tel:+79660002626)\n"
             "\U0001F4AC Telegram: @blatznak77\n"
-            "\U0001F4F1 [Написать в WhatsApp](https://wa.me/79660002626)",
+            "\U0001F4F1 [WhatsApp](https://wa.me/79660002626)",
             parse_mode="Markdown"
         )
     else:
@@ -165,7 +167,11 @@ def main():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, unified_handler))
-    app.run_polling()
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        webhook_url=WEBHOOK_URL
+    )
 
 if __name__ == "__main__":
     main()
